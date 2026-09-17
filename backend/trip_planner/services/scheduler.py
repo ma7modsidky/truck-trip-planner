@@ -104,3 +104,53 @@ class HOSScheduler:
         self.state.apply_event(event)
 
         return event
+
+    def schedule_fuel(self) -> ScheduleEvent:
+        return self._schedule_on_duty_activity(
+        activity=Activity.FUEL,
+        duration=self.config.fuel_duration,
+        description="Fuel stop",
+    )
+
+    def schedule_pickup(self) -> ScheduleEvent:
+        return self._schedule_on_duty_activity(
+            activity=Activity.PICKUP,
+            duration=self.config.pickup_duration,
+            description="Pickup",
+        )
+
+
+    def schedule_dropoff(self) -> ScheduleEvent:
+        return self._schedule_on_duty_activity(
+            activity=Activity.DROPOFF,
+            duration=self.config.dropoff_duration,
+            description="Dropoff",
+        )
+
+
+    def _schedule_on_duty_activity(
+        self,
+        activity: Activity,
+        duration: timedelta,
+        description: str,
+    ) -> ScheduleEvent:
+        if duration > self.state.remaining_duty_window(self.config):
+            raise SchedulingError(
+                f"{description} exceeds remaining duty window."
+            )
+
+        if duration > self.state.remaining_cycle_time(self.config):
+            raise SchedulingError(
+                f"{description} exceeds remaining cycle time."
+            )
+
+        event = ScheduleEvent(
+            start=self.state.current_time,
+            end=self.state.current_time + duration,
+            status=DutyStatus.ON_DUTY,
+            activity=activity,
+        )
+
+        self.state.apply_event(event)
+
+        return event

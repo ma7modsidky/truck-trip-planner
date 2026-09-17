@@ -15,6 +15,6 @@ class HOSConfig:
     cycle_limit: timedelta = timedelta(hours=70)
 
     fuel_interval_miles: float = 1000.0
-
+    fuel_duration: timedelta = timedelta(minutes=30)
     pickup_duration: timedelta = timedelta(hours=1)
     dropoff_duration: timedelta = timedelta(hours=1)

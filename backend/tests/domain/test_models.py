@@ -349,3 +349,62 @@ def test_rest_less_than_ten_hours_does_not_reset_daily_state():
 
     assert state.cycle_used == timedelta(hours=35)
     assert state.distance_since_fuel == 500
+
+def test_max_drivable_now_limited_by_driving_time():
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 8, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+        driving_today=timedelta(hours=9),
+    )
+    config = HOSConfig()
+
+    # 11h limit - 9h used = 2h left. All other limits are larger.
+    assert state.max_drivable_now(config, miles_per_hour=55) == timedelta(hours=2)
+
+
+def test_max_drivable_now_limited_by_duty_window():
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 20, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+    )
+    config = HOSConfig()
+
+    # Duty window ends at 22:00 -> 2h left.
+    assert state.max_drivable_now(config, miles_per_hour=55) == timedelta(hours=2)
+
+
+def test_max_drivable_now_limited_by_break():
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 8, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+        driving_since_break=timedelta(hours=7),
+    )
+    config = HOSConfig()
+
+    # Break required after 8h. 1h left.
+    assert state.max_drivable_now(config, miles_per_hour=55) == timedelta(hours=1)
+
+
+def test_max_drivable_now_limited_by_fuel():
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 8, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+        distance_since_fuel=900,
+    )
+    config = HOSConfig()
+
+    # 100 miles left -> 100/55 hours ≈ 1h49m.
+    # All other limits are much larger.
+    result = state.max_drivable_now(config, miles_per_hour=55)
+    assert result == timedelta(hours=100 / 55)
+
+
+def test_max_drivable_now_returns_zero_when_cycle_exhausted():
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 8, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+        cycle_used=timedelta(hours=70),
+    )
+    config = HOSConfig()
+
+    assert state.max_drivable_now(config, miles_per_hour=55) == timedelta(0)

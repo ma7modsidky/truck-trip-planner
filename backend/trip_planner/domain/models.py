@@ -61,6 +61,8 @@ class DriverState:
 
         elif event.status == DutyStatus.ON_DUTY:
             self._apply_on_duty(duration)
+            if event.activity == Activity.FUEL:
+                self.distance_since_fuel = 0.0
 
         elif event.status == DutyStatus.OFF_DUTY:
             self._apply_off_duty(duration)
@@ -117,10 +119,64 @@ class DriverState:
         remaining = config.fuel_interval_miles - self.distance_since_fuel
         return max(remaining, 0.0)
 
+    def remaining_distance_before_break(self, config: HOSConfig) -> timedelta:
+        """
+        How much more driving time is allowed before a 30-minute break is required?
+        """
+        remaining = config.break_after_driving_time - self.driving_since_break
+        return max(remaining, timedelta(0))
+
+    def max_drivable_now(
+            self,
+            config: HOSConfig,
+            miles_per_hour: float,
+        ) -> timedelta:
+        """
+        The maximum continuous driving time available right now,
+        before ANY HOS constraint forces a stop.
+
+        miles_per_hour is needed to convert the fuel-distance limit
+        into a time limit.
+        """
+        if miles_per_hour <= 0:
+            raise ValueError("miles_per_hour must be positive.")
+
+        fuel_remaining_miles = self.remaining_distance_before_fuel(config)
+        fuel_remaining_time = timedelta(
+            hours=fuel_remaining_miles / miles_per_hour
+        )
+
+        break_remaining_time = self.remaining_distance_before_break(config)
+
+        candidates = [
+            self.remaining_driving_time(config),
+            self.remaining_duty_window(config),
+            self.remaining_cycle_time(config),
+            break_remaining_time,
+            fuel_remaining_time,
+        ]
+
+        return min(candidates)
+
 @dataclass(frozen=True)
-class Route:
+class RouteLeg:
+    origin: Location
+    destination: Location
     distance_miles: float
     duration: timedelta
+
+
+@dataclass(frozen=True)
+class Route:
+    legs: list[RouteLeg]
+
+    @property
+    def total_distance_miles(self) -> float:
+        return sum(leg.distance_miles for leg in self.legs)
+
+    @property
+    def total_duration(self) -> timedelta:
+        return sum((leg.duration for leg in self.legs), timedelta(0))
 
 @dataclass(frozen=True)
 class TripRequest:
