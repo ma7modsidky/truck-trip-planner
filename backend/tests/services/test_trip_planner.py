@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from trip_planner.domain.enums import Activity
 from trip_planner.domain.models import DriverState, Location, Route, RouteLeg
@@ -20,8 +20,8 @@ def test_trip_planner_completes_short_trip():
     ])
 
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
     )
 
     planner = TripPlanner(route, state, miles_per_hour=55)
@@ -60,8 +60,8 @@ def test_trip_planner_inserts_rest_on_long_trip():
     ])
 
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 6, 0),
-        shift_start=datetime(2026, 9, 18, 6, 0),
+        current_time=datetime(2026, 9, 18, 6, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 6, 0, tzinfo=timezone.utc),
     )
 
     planner = TripPlanner(route, state, miles_per_hour=55)
@@ -96,8 +96,8 @@ def test_events_are_contiguous():
     ])
 
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 6, 0),
-        shift_start=datetime(2026, 9, 18, 6, 0),
+        current_time=datetime(2026, 9, 18, 6, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 6, 0, tzinfo=timezone.utc),
     )
 
     planner = TripPlanner(route, state, miles_per_hour=55)

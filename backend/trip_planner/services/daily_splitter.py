@@ -4,9 +4,25 @@ from datetime import date, datetime, time, timedelta
 from trip_planner.domain.models import ScheduleEvent
 
 
+from collections import defaultdict
+from datetime import date, datetime, time, timedelta, timezone
+
+from trip_planner.domain.models import ScheduleEvent
+
+
 def _midnight_after(d: date) -> datetime:
-    """The datetime of midnight starting the day AFTER `d`."""
-    return datetime.combine(d + timedelta(days=1), time.min)
+    """
+    The UTC midnight starting the day AFTER `d`.
+
+    We use UTC as the canonical day boundary. The datetimes in
+    ScheduleEvent are expected to be timezone-aware (Django's
+    default).
+    """
+    return datetime.combine(
+        d + timedelta(days=1),
+        time.min,
+        tzinfo=timezone.utc,
+    )
 
 
 def split_events_by_day(
@@ -24,7 +40,6 @@ def split_events_by_day(
 
     for event in events:
         _split_event_into_days(event, by_day)
-
     # Return a plain dict with sorted days and sorted events.
     return {
         day: sorted(by_day[day], key=lambda e: e.start)
@@ -36,6 +51,11 @@ def _split_event_into_days(
     event: ScheduleEvent,
     by_day: dict[date, list[ScheduleEvent]],
 ) -> None:
+    if event.start.tzinfo is None:
+        raise ValueError(
+            "ScheduleEvent datetimes must be timezone-aware."
+        )
+
     cursor = event.start
 
     while cursor < event.end:

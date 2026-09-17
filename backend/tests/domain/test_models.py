@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -13,8 +13,8 @@ from trip_planner.domain.config import HOSConfig
 
 def test_schedule_event_calculates_duration():
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 8, 0),
-        end=datetime(2026, 9, 18, 9, 30),
+        start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc),
         status=DutyStatus.ON_DUTY,
         activity=Activity.PICKUP,
     )
@@ -24,16 +24,16 @@ def test_schedule_event_calculates_duration():
 def test_schedule_event_rejects_invalid_time_range():
     with pytest.raises(ValueError):
         ScheduleEvent(
-            start=datetime(2026, 9, 18, 9, 0),
-            end=datetime(2026, 9, 18, 8, 0),
+            start=datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
             status=DutyStatus.ON_DUTY,
             activity=Activity.PICKUP,
         )
 
 def test_driver_state_starts_with_zero_daily_counters():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         cycle_used=timedelta(hours=25),
     )
 
@@ -46,14 +46,14 @@ def test_driver_state_starts_with_zero_daily_counters():
 
 def test_applying_driving_event_updates_driving_counters():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         cycle_used=timedelta(hours=25),
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 8, 0),
-        end=datetime(2026, 9, 18, 12, 0),
+        start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc),
         status=DutyStatus.DRIVING,
         activity=Activity.DRIVING,
         distance_miles=250,
@@ -61,7 +61,7 @@ def test_applying_driving_event_updates_driving_counters():
 
     state.apply_event(event)
 
-    assert state.current_time == datetime(2026, 9, 18, 12, 0)
+    assert state.current_time == datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc)
     assert state.driving_today == timedelta(hours=4)
     assert state.duty_today == timedelta(hours=4)
     assert state.cycle_used == timedelta(hours=29)
@@ -71,21 +71,21 @@ def test_applying_driving_event_updates_driving_counters():
 
 def test_applying_on_duty_event_does_not_increase_driving_time():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         cycle_used=timedelta(hours=25),
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 8, 0),
-        end=datetime(2026, 9, 18, 9, 0),
+        start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc),
         status=DutyStatus.ON_DUTY,
         activity=Activity.PICKUP,
     )
 
     state.apply_event(event)
 
-    assert state.current_time == datetime(2026, 9, 18, 9, 0)
+    assert state.current_time == datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc)
     assert state.driving_today == timedelta(0)
     assert state.duty_today == timedelta(hours=1)
     assert state.cycle_used == timedelta(hours=26)
@@ -93,8 +93,8 @@ def test_applying_on_duty_event_does_not_increase_driving_time():
 
 def test_applying_break_resets_driving_since_break():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 13, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 13, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_today=timedelta(hours=8),
         duty_today=timedelta(hours=8),
         cycle_used=timedelta(hours=33),
@@ -102,15 +102,15 @@ def test_applying_break_resets_driving_since_break():
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 13, 0),
-        end=datetime(2026, 9, 18, 13, 30),
+        start=datetime(2026, 9, 18, 13, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 13, 30, tzinfo=timezone.utc),
         status=DutyStatus.OFF_DUTY,
         activity=Activity.BREAK,
     )
 
     state.apply_event(event)
 
-    assert state.current_time == datetime(2026, 9, 18, 13, 30)
+    assert state.current_time == datetime(2026, 9, 18, 13, 30, tzinfo=timezone.utc)
 
     assert state.driving_today == timedelta(hours=8)
     assert state.duty_today == timedelta(hours=8)
@@ -120,13 +120,13 @@ def test_applying_break_resets_driving_since_break():
 
 def test_event_must_start_at_current_driver_time():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 9, 0),
-        end=datetime(2026, 9, 18, 10, 0),
+        start=datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 10, 0, tzinfo=timezone.utc),
         status=DutyStatus.DRIVING,
         activity=Activity.DRIVING,
     )
@@ -136,8 +136,8 @@ def test_event_must_start_at_current_driver_time():
 
 def test_remaining_driving_time():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_today=timedelta(hours=4),
     )
 
@@ -147,8 +147,8 @@ def test_remaining_driving_time():
 
 def test_remaining_driving_time_cannot_be_negative():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_today=timedelta(hours=12),
     )
 
@@ -158,8 +158,8 @@ def test_remaining_driving_time_cannot_be_negative():
 
 def test_remaining_duty_window_is_based_on_shift_start():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 17, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 17, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         duty_today=timedelta(hours=6),
     )
 
@@ -169,8 +169,8 @@ def test_remaining_duty_window_is_based_on_shift_start():
 
 def test_remaining_duty_window_cannot_be_negative():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 23, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 23, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
     )
 
     config = HOSConfig()
@@ -179,8 +179,8 @@ def test_remaining_duty_window_cannot_be_negative():
 
 def test_remaining_cycle_time():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         cycle_used=timedelta(hours=25),
     )
 
@@ -190,8 +190,8 @@ def test_remaining_cycle_time():
 
 def test_remaining_cycle_time_cannot_be_negative():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         cycle_used=timedelta(hours=72),
     )
 
@@ -201,8 +201,8 @@ def test_remaining_cycle_time_cannot_be_negative():
 
 def test_break_not_required_before_threshold():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 12, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_since_break=timedelta(hours=7),
     )
 
@@ -212,8 +212,8 @@ def test_break_not_required_before_threshold():
 
 def test_break_required_at_threshold():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 16, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 16, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_since_break=timedelta(hours=8),
     )
 
@@ -223,14 +223,14 @@ def test_break_required_at_threshold():
 
 def test_short_off_duty_period_does_not_reset_break_counter():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 13, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 13, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_since_break=timedelta(hours=7),
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 13, 0),
-        end=datetime(2026, 9, 18, 13, 15),
+        start=datetime(2026, 9, 18, 13, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 13, 15, tzinfo=timezone.utc),
         status=DutyStatus.OFF_DUTY,
         activity=Activity.BREAK,
     )
@@ -241,14 +241,14 @@ def test_short_off_duty_period_does_not_reset_break_counter():
 
 def test_thirty_minute_break_resets_break_counter():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 13, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 13, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_since_break=timedelta(hours=8),
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 13, 0),
-        end=datetime(2026, 9, 18, 13, 30),
+        start=datetime(2026, 9, 18, 13, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 18, 13, 30, tzinfo=timezone.utc),
         status=DutyStatus.OFF_DUTY,
         activity=Activity.BREAK,
     )
@@ -259,8 +259,8 @@ def test_thirty_minute_break_resets_break_counter():
 
 def test_remaining_distance_before_fuel():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         distance_since_fuel=300,
     )
 
@@ -270,8 +270,8 @@ def test_remaining_distance_before_fuel():
 
 def test_remaining_distance_before_fuel_cannot_be_negative():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         distance_since_fuel=1200,
     )
 
@@ -282,8 +282,8 @@ def test_remaining_distance_before_fuel_cannot_be_negative():
 def test_schedule_event_rejects_negative_distance():
     with pytest.raises(ValueError):
         ScheduleEvent(
-            start=datetime(2026, 9, 18, 8, 0),
-            end=datetime(2026, 9, 18, 9, 0),
+            start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+            end=datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc),
             status=DutyStatus.DRIVING,
             activity=Activity.DRIVING,
             distance_miles=-10,
@@ -291,8 +291,8 @@ def test_schedule_event_rejects_negative_distance():
 
 def test_ten_hour_rest_resets_daily_state():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 22, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 22, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_today=timedelta(hours=8),
         duty_today=timedelta(hours=10),
         cycle_used=timedelta(hours=35),
@@ -301,17 +301,17 @@ def test_ten_hour_rest_resets_daily_state():
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 22, 0),
-        end=datetime(2026, 9, 19, 8, 0),
+        start=datetime(2026, 9, 18, 22, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 19, 8, 0, tzinfo=timezone.utc),
         status=DutyStatus.SLEEPER,
         activity=Activity.REST,
     )
 
     state.apply_event(event)
 
-    assert state.current_time == datetime(2026, 9, 19, 8, 0)
+    assert state.current_time == datetime(2026, 9, 19, 8, 0, tzinfo=timezone.utc)
 
-    assert state.shift_start == datetime(2026, 9, 19, 8, 0)
+    assert state.shift_start == datetime(2026, 9, 19, 8, 0, tzinfo=timezone.utc)
 
     assert state.driving_today == timedelta(0)
     assert state.duty_today == timedelta(0)
@@ -323,8 +323,8 @@ def test_ten_hour_rest_resets_daily_state():
 
 def test_rest_less_than_ten_hours_does_not_reset_daily_state():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 22, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 22, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc ),
         driving_today=timedelta(hours=8),
         duty_today=timedelta(hours=10),
         cycle_used=timedelta(hours=35),
@@ -333,15 +333,15 @@ def test_rest_less_than_ten_hours_does_not_reset_daily_state():
     )
 
     event = ScheduleEvent(
-        start=datetime(2026, 9, 18, 22, 0),
-        end=datetime(2026, 9, 19, 7, 0),
+        start=datetime(2026, 9, 18, 22, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc),
         status=DutyStatus.SLEEPER,
         activity=Activity.REST,
     )
 
     state.apply_event(event)
 
-    assert state.current_time == datetime(2026, 9, 19, 7, 0)
+    assert state.current_time == datetime(2026, 9, 19, 7, 0, tzinfo=timezone.utc)
 
     assert state.driving_today == timedelta(hours=8)
     assert state.duty_today == timedelta(hours=10)
@@ -352,8 +352,8 @@ def test_rest_less_than_ten_hours_does_not_reset_daily_state():
 
 def test_max_drivable_now_limited_by_driving_time():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_today=timedelta(hours=9),
     )
     config = HOSConfig()
@@ -364,8 +364,8 @@ def test_max_drivable_now_limited_by_driving_time():
 
 def test_max_drivable_now_limited_by_duty_window():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 20, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 20, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
     )
     config = HOSConfig()
 
@@ -375,8 +375,8 @@ def test_max_drivable_now_limited_by_duty_window():
 
 def test_max_drivable_now_limited_by_break():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         driving_since_break=timedelta(hours=7),
     )
     config = HOSConfig()
@@ -387,8 +387,8 @@ def test_max_drivable_now_limited_by_break():
 
 def test_max_drivable_now_limited_by_fuel():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         distance_since_fuel=900,
     )
     config = HOSConfig()
@@ -401,8 +401,8 @@ def test_max_drivable_now_limited_by_fuel():
 
 def test_max_drivable_now_returns_zero_when_cycle_exhausted():
     state = DriverState(
-        current_time=datetime(2026, 9, 18, 8, 0),
-        shift_start=datetime(2026, 9, 18, 8, 0),
+        current_time=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 8, 0, tzinfo=timezone.utc),
         cycle_used=timedelta(hours=70),
     )
     config = HOSConfig()
