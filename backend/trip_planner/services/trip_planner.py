@@ -39,18 +39,23 @@ class TripPlanner:
         self.events: list[ScheduleEvent] = []
 
     def plan(self) -> list[ScheduleEvent]:
-        current_to_pickup = self.route.legs[0]
-        pickup_to_dropoff = self.route.legs[1]
+        leg_to_pickup = self.route.legs[0]
+        leg_to_dropoff = self.route.legs[1]
 
-        self._drive_leg(current_to_pickup)
-        self._record(self.scheduler.schedule_pickup())
+        self._drive_leg(leg_to_pickup)
+        self._record(
+            self.scheduler.schedule_pickup(location=leg_to_pickup.destination)
+        )
 
-        self._drive_leg(pickup_to_dropoff)
-        self._record(self.scheduler.schedule_dropoff())
+        self._drive_leg(leg_to_dropoff)
+        self._record(
+            self.scheduler.schedule_dropoff(location=leg_to_dropoff.destination)
+        )
 
         return self.events
 
     def _drive_leg(self, leg) -> None:
+        self._first_drive_done = False
         EPSILON = 1e-6
         remaining_miles = leg.distance_miles
 
@@ -79,12 +84,24 @@ class TripPlanner:
             chunk_time = timedelta(hours=chunk_miles / self.miles_per_hour)
 
             is_final_chunk = chunk_miles >= remaining_miles - EPSILON
-
+            # Choose the location to attach to this driving event:
+            # - If it's the first driving event of the whole trip,
+            #   attach the leg's origin (the starting point).
+            # - If it's the final chunk of the leg,
+            #   attach the leg's destination.
+            # - Otherwise, no location.
+            if not self._first_drive_done:
+                location = leg.origin
+                self._first_drive_done = True
+            elif is_final_chunk:
+                location = leg.destination
+            else:
+                location = None
             self._record(
                 self.scheduler.schedule_driving(
                     duration=chunk_time,
                     distance_miles=chunk_miles,
-                    location=leg.destination if is_final_chunk else None,
+                    location=location,
                 )
             )
             remaining_miles -= chunk_miles

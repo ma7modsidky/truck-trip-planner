@@ -107,3 +107,63 @@ def test_events_are_contiguous():
             f"Gap between {prev.activity} (ends {prev.end}) "
             f"and {curr.activity} (starts {curr.start})"
         )
+
+def test_first_driving_event_has_origin_location():
+    la = Location("Los Angeles", 34.05, -118.24)
+    phoenix = Location("Phoenix", 33.45, -112.07)
+    tucson = Location("Tucson", 32.22, -110.97)
+
+    route = Route(legs=[
+        RouteLeg(origin=la, destination=phoenix,
+                 distance_miles=370,
+                 duration=timedelta(hours=6, minutes=45)),
+        RouteLeg(origin=phoenix, destination=tucson,
+                 distance_miles=120,
+                 duration=timedelta(hours=2, minutes=10)),
+    ])
+
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 8, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+    )
+
+    planner = TripPlanner(route, state)
+    events = planner.plan()
+
+    assert events[0].activity == Activity.DRIVING
+    assert events[0].location == la
+
+
+def test_pickup_event_has_pickup_location():
+    la = Location("Los Angeles", 34.05, -118.24)
+    phoenix = Location("Phoenix", 33.45, -112.07)
+    tucson = Location("Tucson", 32.22, -110.97)
+
+    route = Route(legs=[
+        RouteLeg(
+            origin=la,
+            destination=phoenix,
+            distance_miles=370,
+            duration=timedelta(hours=6, minutes=45),
+        ),
+        RouteLeg(
+            origin=phoenix,
+            destination=tucson,
+            distance_miles=120,
+            duration=timedelta(hours=2, minutes=10),
+        ),
+    ])
+
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 8, 0),
+        shift_start=datetime(2026, 9, 18, 8, 0),
+    )
+
+    planner = TripPlanner(route, state)
+    events = planner.plan()
+
+    pickup = next(e for e in events if e.activity == Activity.PICKUP)
+    assert pickup.location == phoenix
+
+    dropoff = next(e for e in events if e.activity == Activity.DROPOFF)
+    assert dropoff.location == tucson

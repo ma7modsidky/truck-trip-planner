@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from .enums import Activity, DutyStatus
@@ -164,6 +164,7 @@ class RouteLeg:
     destination: Location
     distance_miles: float
     duration: timedelta
+    geometry: list[tuple[float, float]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

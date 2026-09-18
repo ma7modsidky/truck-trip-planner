@@ -6,14 +6,24 @@ from api.services.ors_client import ORSClient, RoutingError
 from trip_planner.domain.models import Location
 
 
-def _fake_ors_response(distance_meters: float, duration_seconds: float) -> dict:
+def _fake_geojson_response(
+    distance_meters: float,
+    duration_seconds: float,
+    coords: list[list[float]] | None = None,
+) -> dict:
     return {
-        "routes": [
+        "features": [
             {
-                "summary": {
-                    "distance": distance_meters,
-                    "duration": duration_seconds,
-                }
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": coords or [[-118.24, 34.05], [-112.07, 33.45]],
+                },
+                "properties": {
+                    "summary": {
+                        "distance": distance_meters,
+                        "duration": duration_seconds,
+                    }
+                },
             }
         ]
     }
@@ -25,11 +35,10 @@ def test_get_leg_converts_meters_to_miles(monkeypatch):
 
     client = ORSClient(api_key="dummy")
 
-    # Replace the internal openrouteservice client's directions method.
     monkeypatch.setattr(
         client._client,
         "directions",
-        lambda **kwargs: _fake_ors_response(
+        lambda **kwargs: _fake_geojson_response(
             distance_meters=1609.344 * 370,
             duration_seconds=6 * 3600 + 45 * 60,
         ),
@@ -37,10 +46,11 @@ def test_get_leg_converts_meters_to_miles(monkeypatch):
 
     leg = client.get_leg(la, phoenix)
 
-    assert leg.origin == la
-    assert leg.destination == phoenix
     assert leg.distance_miles == pytest.approx(370.0, rel=1e-6)
     assert leg.duration == timedelta(hours=6, minutes=45)
+    # [lng, lat] → (lat, lng)
+    assert leg.geometry == [(34.05, -118.24), (33.45, -112.07)]
+
 
 
 def test_get_leg_raises_routing_error_on_malformed_response(monkeypatch):

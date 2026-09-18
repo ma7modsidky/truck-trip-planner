@@ -52,7 +52,7 @@ class ORSClient:
             response = self._client.directions(
                 coordinates=coordinates,
                 profile="driving-hgv",  # heavy goods vehicle — this is a trucking app
-                format="json",
+                format="geojson",
                 units="m",
             )
         except (ApiError, HTTPError) as exc:
@@ -69,10 +69,15 @@ class ORSClient:
         destination: Location,
     ) -> RouteLeg:
         try:
-            route = response["routes"][0]
-            summary = route["summary"]
+            feature = response["features"][0]
+            summary = feature["properties"]["summary"]
             distance_meters = summary["distance"]
             duration_seconds = summary["duration"]
+
+            # GeoJSON coordinates are [lng, lat]; convert to (lat, lng)
+            # for Leaflet.
+            raw_coords = feature["geometry"]["coordinates"]
+            geometry = [(lat, lng) for lng, lat in raw_coords]
         except (KeyError, IndexError) as exc:
             raise RoutingError(
                 "Unexpected response shape from ORS."
@@ -86,4 +91,5 @@ class ORSClient:
             destination=destination,
             distance_miles=distance_miles,
             duration=duration,
+            geometry=geometry,
         )

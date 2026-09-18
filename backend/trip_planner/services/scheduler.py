@@ -112,19 +112,26 @@ class HOSScheduler:
         description="Fuel stop",
     )
 
-    def schedule_pickup(self) -> ScheduleEvent:
+    def schedule_pickup(
+    self,
+    location: Location | None = None,
+    ) -> ScheduleEvent:
         return self._schedule_on_duty_activity(
             activity=Activity.PICKUP,
             duration=self.config.pickup_duration,
             description="Pickup",
+            location=location,
         )
 
-
-    def schedule_dropoff(self) -> ScheduleEvent:
+    def schedule_dropoff(
+        self,
+        location: Location | None = None,
+    ) -> ScheduleEvent:
         return self._schedule_on_duty_activity(
             activity=Activity.DROPOFF,
             duration=self.config.dropoff_duration,
             description="Dropoff",
+            location=location,
         )
 
 
@@ -133,6 +140,7 @@ class HOSScheduler:
         activity: Activity,
         duration: timedelta,
         description: str,
+        location: Location | None = None,
     ) -> ScheduleEvent:
         if duration > self.state.remaining_duty_window(self.config):
             raise SchedulingError(
@@ -149,6 +157,7 @@ class HOSScheduler:
             end=self.state.current_time + duration,
             status=DutyStatus.ON_DUTY,
             activity=activity,
+            location=location,
         )
 
         self.state.apply_event(event)

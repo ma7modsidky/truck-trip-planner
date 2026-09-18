@@ -66,9 +66,14 @@ class RouteLegOutputSerializer(serializers.Serializer):
     destination = LocationOutputSerializer()
     distance_miles = serializers.FloatField()
     duration_hours = serializers.SerializerMethodField()
+    geometry = serializers.SerializerMethodField()
 
     def get_duration_hours(self, leg: RouteLeg) -> float:
         return leg.duration.total_seconds() / 3600
+
+    def get_geometry(self, leg: RouteLeg) -> list[list[float]]:
+        # Return as [lat, lng] to match Leaflet's convention.
+        return [[lat, lng] for lat, lng in leg.geometry]
 
 
 class RouteOutputSerializer(serializers.Serializer):
