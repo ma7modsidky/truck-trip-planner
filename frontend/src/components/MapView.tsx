@@ -1,19 +1,136 @@
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-
-import type { ScheduleEvent, TripPlanResponse } from '../types/api'
+// import L from 'leaflet'
+import type { DivIcon } from 'leaflet'
+import type { Location,ScheduleEvent, TripPlanResponse } from '../types/api'
 import { ScrollWheelManager } from './ScrollWheelManager'
 import { FitBounds } from './FitBounds'
-import { currentIcon, pickupIcon, dropoffIcon, stopIcon } from './markerIcons'
+import { currentIcon, pickupIcon, dropoffIcon, stopIcon, combinedIcon} from './markerIcons'
 
 interface Props {
   plan: TripPlanResponse
 }
 
-
+// ---- helpers ----
 function stopLabel(event: ScheduleEvent): string {
   const place = event.location?.name ?? 'En route'
   return `${event.activity} · ${place}`
+}
+
+type KeyMarker = {
+  key: string
+  position: [number, number]
+  icon: DivIcon
+  title: string
+  subtitle: string
+}
+
+function samePoint(a: Location, b: Location): boolean {
+  return (
+    Math.abs(a.latitude - b.latitude) < 1e-4 &&
+    Math.abs(a.longitude - b.longitude) < 1e-4
+  )
+}
+
+type Role = 'A' | 'B' | 'C'   // A=Current, B=Pickup, C=Dropoff
+
+interface PointGroup {
+  position: [number, number]
+  roles: Role[]
+  names: string[]   // the human-readable names to show in the popup
+}
+
+function buildKeyMarkers(plan: TripPlanResponse): KeyMarker[] {
+  const start = plan.route.legs[0].origin
+  const pickup = plan.route.legs[0].destination
+  const dropoff = plan.route.legs[1].destination
+
+  const points: { role: Role; location: Location }[] = [
+    { role: 'A', location: start },
+    { role: 'B', location: pickup },
+    { role: 'C', location: dropoff },
+  ]
+
+  // Group by coordinate proximity.
+  const groups: PointGroup[] = []
+
+  for (const point of points) {
+    // Find an existing group within tolerance.
+    const existing = groups.find((g) =>
+      samePoint(
+        {
+          name: '',
+          latitude: g.position[0],
+          longitude: g.position[1],
+        },
+        point.location,
+      ),
+    )
+
+    if (existing) {
+      existing.roles.push(point.role)
+      if (!existing.names.includes(point.location.name)) {
+        existing.names.push(point.location.name)
+      }
+    } else {
+      groups.push({
+        position: [point.location.latitude, point.location.longitude],
+        roles: [point.role],
+        names: [point.location.name],
+      })
+    }
+  }
+
+  // Convert each group to a KeyMarker with the right icon and label.
+  return groups.map((group) => {
+    const roleLabel = group.roles.join('/')   // "A", "A/B", "A/B/C"
+    const title = titleForRoles(group.roles)
+    const subtitle = group.names.join(' · ')
+
+    const icon =
+      group.roles.length === 1
+        ? singleRoleIcon(group.roles[0])
+        : combinedIcon(colorForRoles(group.roles), roleLabel)
+
+    return {
+      key: roleLabel,
+      position: group.position,
+      icon,
+      title,
+      subtitle,
+    }
+  })
+}
+
+function singleRoleIcon(role: Role): DivIcon {
+  switch (role) {
+    case 'A': return currentIcon
+    case 'B': return pickupIcon
+    case 'C': return dropoffIcon
+  }
+}
+
+function colorForRoles(roles: Role[]): string {
+  // If A is in the group, use the current-location color.
+  // Otherwise use the pickup color.
+  if (roles.includes('A')) return '#0ea5e9'
+  if (roles.includes('B')) return '#16a34a'
+  return '#dc2626'
+}
+
+function titleForRoles(roles: Role[]): string {
+  if (roles.length === 1) {
+    return (
+      roles[0] === 'A' ? 'Current location' :
+      roles[0] === 'B' ? 'Pickup' :
+      'Dropoff'
+    )
+  }
+  // Combined
+  if (roles.length === 3) return 'Current + Pickup + Dropoff'
+  if (roles.includes('A') && roles.includes('B')) return 'Current + Pickup'
+  if (roles.includes('A') && roles.includes('C')) return 'Current + Dropoff'
+  return 'Pickup + Dropoff'
 }
 
 export function MapView({ plan }: Props) {
@@ -32,14 +149,16 @@ export function MapView({ plan }: Props) {
 
   const center: [number, number] =
   fullRoute.length > 0 ? fullRoute[Math.floor(fullRoute.length / 2)] : [39.5, -98.35]
-  // The three key locations from the route itself.
-  const startLocation = plan.route.legs[0].origin
-  const pickupLocation = plan.route.legs[0].destination
-  const dropoffLocation = plan.route.legs[1].destination
+
+
 
   const leg0 = plan.route.legs[0].geometry
   const leg1 = plan.route.legs[1].geometry
   const allPositions = [...leg0, ...leg1]
+
+
+
+  const keyMarkers = buildKeyMarkers(plan)
   return (
       <div className="h-[500px] w-full overflow-hidden rounded-lg border border-slate-200">
         
@@ -65,33 +184,16 @@ export function MapView({ plan }: Props) {
           <Polyline positions={leg1} pathOptions={{ color: '#0f172a', weight: 4, opacity: 0.85, dashArray: '8 6' }} />
           </>
         )}
-        {/* Markers for the three key locations. */}
-        <Marker position={[startLocation.latitude, startLocation.longitude]} icon={currentIcon}>
-          <Popup>
-            <div className="text-xs">
-              <div className="font-semibold">Current location</div>
-              <div>{startLocation.name}</div>
-            </div>
-          </Popup>
-        </Marker>
-
-        <Marker position={[pickupLocation.latitude, pickupLocation.longitude]} icon={pickupIcon}>
-          <Popup>
-            <div className="text-xs">
-              <div className="font-semibold">Pickup</div>
-              <div>{pickupLocation.name}</div>
-            </div>
-          </Popup>
-        </Marker>
-
-        <Marker position={[dropoffLocation.latitude, dropoffLocation.longitude]} icon={dropoffIcon}>
-          <Popup>
-            <div className="text-xs">
-              <div className="font-semibold">Dropoff</div>
-              <div>{dropoffLocation.name}</div>
-            </div>
-          </Popup>
-        </Marker>
+        {keyMarkers.map((m) => (
+          <Marker key={m.key} position={m.position} icon={m.icon}>
+            <Popup>
+              <div className="text-xs">
+                <div className="font-semibold">{m.title}</div>
+                <div>{m.subtitle}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
         {/* Secondary stops with a smaller, neutral marker. */}
         {stops.map((stop, i) => (
