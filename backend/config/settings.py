@@ -22,23 +22,36 @@ load_dotenv(BASE_DIR / ".env")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+def _env_bool(key: str, default: bool = False) -> bool:
+    """Parse a boolean from an environment variable."""
+    value = os.environ.get(key)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-+!uzsj2ucua44(a61jko(vj7(j^9l^zxd65#3jvhm1&^zk8p%g'
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "DJANGO_SECRET_KEY is not set. Set it in .env for local "
+        "development or in the environment for deployment."
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_bool("DJANGO_DEBUG", default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if h.strip()
+]
 
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",   # Vite dev server
-    "http://localhost:3000",   # CRA / Next dev server
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
 ]
-
 # Application definition
 
 INSTALLED_APPS = [
