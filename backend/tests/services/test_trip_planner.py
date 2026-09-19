@@ -167,3 +167,37 @@ def test_pickup_event_has_pickup_location():
 
     dropoff = next(e for e in events if e.activity == Activity.DROPOFF)
     assert dropoff.location == tucson
+
+
+def test_planner_handles_long_trip_with_multiple_fuel_stops():
+    # A trip long enough to require multiple fuel stops.
+    la = Location("Los Angeles", 34.05, -118.24)
+    chicago = Location("Chicago", 41.88, -87.63)
+    new_york = Location("New York", 40.71, -74.01)
+
+    route = Route(legs=[
+        RouteLeg(
+            origin=la, destination=chicago,
+            distance_miles=2015,   # requires 3 fuel stops
+            duration=timedelta(hours=36, minutes=40),
+        ),
+        RouteLeg(
+            origin=chicago, destination=new_york,
+            distance_miles=790,
+            duration=timedelta(hours=14, minutes=20),
+        ),
+    ])
+
+    state = DriverState(
+        current_time=datetime(2026, 9, 18, 6, 0, tzinfo=timezone.utc),
+        shift_start=datetime(2026, 9, 18, 6, 0, tzinfo=timezone.utc),
+    )
+
+    planner = TripPlanner(route, state)
+    events = planner.plan()
+
+    fuel_stops = [e for e in events if e.activity == Activity.FUEL]
+    assert len(fuel_stops) >= 2
+
+    total_driven = sum(e.distance_miles for e in events if e.activity == Activity.DRIVING)
+    assert total_driven == pytest.approx(2805, rel=1e-3)

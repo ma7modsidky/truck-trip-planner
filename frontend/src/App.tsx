@@ -4,6 +4,7 @@ import { MapView } from './components/MapView'
 import type { TripPlanResponse } from './types/api'
 import { LogSheet } from './components/LogSheet'
 import { StopList } from './components/StopList'
+import { formatHoursMinutes } from './utils/formatDuration.ts'
 
 function App() {
   const [plan, setPlan] = useState<TripPlanResponse | null>(null)
@@ -44,7 +45,7 @@ function App() {
               />
               <SummaryCard
                 label="Total drive time"
-                value={`${plan.route.total_duration_hours.toFixed(1)} h`}
+                value={formatHoursMinutes(plan.route.total_duration_hours)}
               />
               <SummaryCard
                 label="Log sheets"
@@ -73,7 +74,9 @@ function App() {
                   key={day.date}
                   day={day}
                   dayNumber={i + 1}
-                  totalDays={plan.days.length}
+                  totalDays={plan.days.length}  
+                  fromLocation={plan.route.legs[0].origin.name}
+                  toLocation={plan.route.legs[plan.route.legs.length - 1].destination.name}
                 />
               ))}
             </div>

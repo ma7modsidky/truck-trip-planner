@@ -25,7 +25,7 @@ class HOSScheduler:
         distance_miles: float,
         location: Location | None = None,
     ) -> ScheduleEvent:
-
+        EPSILON_MILES = 1e-6
         if duration <= timedelta(0):
             raise SchedulingError(
                 "Driving duration must be greater than zero."
@@ -57,9 +57,8 @@ class HOSScheduler:
                 "Driving duration exceeds remaining cycle time."
             )
 
-        if distance_miles > self.state.remaining_distance_before_fuel(
-            self.config
-        ):
+        remaining_fuel = self.state.remaining_distance_before_fuel(self.config)
+        if distance_miles > remaining_fuel + 1e-6:
             raise SchedulingError(
                 "Driving distance exceeds remaining fuel interval."
             )

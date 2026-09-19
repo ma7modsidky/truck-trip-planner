@@ -62,18 +62,21 @@ export function TripForm({ onPlan }: Props) {
           value={current}
           onChange={setCurrent}
           placeholder="Where is the driver now?"
+          allowGeolocation
         />
         <LocationInput
           label="Pickup location"
           value={pickup}
           onChange={setPickup}
           placeholder="Where is the load picked up?"
+          allowGeolocation
         />
         <LocationInput
           label="Dropoff location"
           value={dropoff}
           onChange={setDropoff}
           placeholder="Where is the load delivered?"
+          allowGeolocation
         />
       </div>
 

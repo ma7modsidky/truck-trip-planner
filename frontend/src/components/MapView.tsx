@@ -1,35 +1,15 @@
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet'
-import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import type { ScheduleEvent, TripPlanResponse } from '../types/api'
+import { ScrollWheelManager } from './ScrollWheelManager'
+import { FitBounds } from './FitBounds'
+import { currentIcon, pickupIcon, dropoffIcon, stopIcon } from './markerIcons'
 
 interface Props {
   plan: TripPlanResponse
 }
 
-// Leaflet's default marker icons reference images by URL. With Vite's
-// bundler, those URLs don't resolve. We replace them with a CDN URL.
-const defaultIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-})
-
-function stopColor(activity: ScheduleEvent['activity']): string {
-  switch (activity) {
-    case 'PICKUP':  return '#16a34a'  // green
-    case 'DROPOFF': return '#dc2626'  // red
-    case 'FUEL':    return '#ca8a04'  // amber
-    case 'BREAK':   return '#0891b2'  // cyan
-    case 'REST':    return '#7c3aed'  // violet
-    default:        return '#64748b'  // slate
-  }
-}
 
 function stopLabel(event: ScheduleEvent): string {
   const place = event.location?.name ?? 'En route'
@@ -45,69 +25,84 @@ export function MapView({ plan }: Props) {
   // Collect every event that has a location and is not a plain
   // driving event. Those are the stops we want to show.
   const stops = plan.events.filter(
-    (e) => e.location !== null && e.activity !== 'DRIVING',
+  (e) =>
+    e.location !== null &&
+    (e.activity === 'FUEL' || e.activity === 'BREAK' || e.activity === 'REST'),
   )
 
-  // Also mark the endpoints of each leg, so the map shows current,
-  // pickup, and dropoff even if the itinerary has no explicit event
-  // with those locations.
-  const startPoint = fullRoute[0]
-  const endPoint = fullRoute[fullRoute.length - 1]
-
   const center: [number, number] =
-    fullRoute.length > 0 ? fullRoute[Math.floor(fullRoute.length / 2)] : [39.5, -98.35]
+  fullRoute.length > 0 ? fullRoute[Math.floor(fullRoute.length / 2)] : [39.5, -98.35]
+  // The three key locations from the route itself.
+  const startLocation = plan.route.legs[0].origin
+  const pickupLocation = plan.route.legs[0].destination
+  const dropoffLocation = plan.route.legs[1].destination
 
+  const leg0 = plan.route.legs[0].geometry
+  const leg1 = plan.route.legs[1].geometry
+  const allPositions = [...leg0, ...leg1]
   return (
-    <div className="h-[500px] w-full overflow-hidden rounded-lg border border-slate-200">
+      <div className="h-[500px] w-full overflow-hidden rounded-lg border border-slate-200">
+        
       <MapContainer
         center={center}
         zoom={5}
         scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
+        <div className="pointer-events-none absolute bottom-2 left-2 z-[500] rounded bg-white/85 px-2 py-1 text-xs text-slate-600 shadow-sm">
+        Hold ⌘/Ctrl + scroll to zoom
+        </div>
+        <ScrollWheelManager />
+        <FitBounds positions={allPositions} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         {fullRoute.length > 1 && (
-          <Polyline
-            positions={fullRoute}
-            pathOptions={{ color: '#0f172a', weight: 4, opacity: 0.85 }}
-          />
+          <>
+          <Polyline positions={leg0} pathOptions={{ color: '#0f172a', weight: 4, opacity: 0.85 }} />
+          <Polyline positions={leg1} pathOptions={{ color: '#0f172a', weight: 4, opacity: 0.85, dashArray: '8 6' }} />
+          </>
         )}
+        {/* Markers for the three key locations. */}
+        <Marker position={[startLocation.latitude, startLocation.longitude]} icon={currentIcon}>
+          <Popup>
+            <div className="text-xs">
+              <div className="font-semibold">Current location</div>
+              <div>{startLocation.name}</div>
+            </div>
+          </Popup>
+        </Marker>
 
-        {startPoint && (
-          <Marker position={startPoint} icon={defaultIcon}>
-            <Popup>Start · {plan.route.legs[0].origin.name}</Popup>
-          </Marker>
-        )}
+        <Marker position={[pickupLocation.latitude, pickupLocation.longitude]} icon={pickupIcon}>
+          <Popup>
+            <div className="text-xs">
+              <div className="font-semibold">Pickup</div>
+              <div>{pickupLocation.name}</div>
+            </div>
+          </Popup>
+        </Marker>
 
+        <Marker position={[dropoffLocation.latitude, dropoffLocation.longitude]} icon={dropoffIcon}>
+          <Popup>
+            <div className="text-xs">
+              <div className="font-semibold">Dropoff</div>
+              <div>{dropoffLocation.name}</div>
+            </div>
+          </Popup>
+        </Marker>
+
+        {/* Secondary stops with a smaller, neutral marker. */}
         {stops.map((stop, i) => (
           <Marker
             key={i}
             position={[stop.location!.latitude, stop.location!.longitude]}
-            icon={defaultIcon}
+            icon={stopIcon}
           >
-            <Popup>
-              <div className="text-xs">
-                <div className="font-semibold">{stopLabel(stop)}</div>
-                <div className="text-slate-500">
-                  {new Date(stop.start).toLocaleString()}
-                </div>
-              </div>
-            </Popup>
+            <Popup>{stopLabel(stop)}</Popup>
           </Marker>
         ))}
-
-        {endPoint && (
-          <Marker position={endPoint} icon={defaultIcon}>
-            <Popup>
-              End ·{' '}
-              {plan.route.legs[plan.route.legs.length - 1].destination.name}
-            </Popup>
-          </Marker>
-        )}
       </MapContainer>
     </div>
   )

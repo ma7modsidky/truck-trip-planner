@@ -71,6 +71,9 @@ class TripPlanner:
                 continue
 
             max_miles = available_time.total_seconds() / 3600 * self.miles_per_hour
+            # Clamp to avoid floating-point overshoot beyond the fuel limit.
+            remaining_fuel = self.state.remaining_distance_before_fuel(self.config)
+            max_miles = min(max_miles, remaining_fuel)
             chunk_miles = min(remaining_miles, max_miles)
 
             # Guard against microscopic chunks from float drift.

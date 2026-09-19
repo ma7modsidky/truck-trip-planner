@@ -201,11 +201,15 @@ interface HeaderProps {
   day: DayPlan
   dayNumber: number
   totalDays: number
+  fromLocation: string
+  toLocation: string
 }
 
-function Header({ day, dayNumber, totalDays }: HeaderProps) {
+function Header({ day, dayNumber, totalDays, fromLocation, toLocation}: HeaderProps) {
   const date = new Date(day.date + 'T00:00:00Z')
-  const { from, to } = dayEndpoints(day.events)
+  function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s
+  }
   return (
     <g>
       <text x={40} y={30} fontSize={15} fontWeight={700} fill="#0f172a">
@@ -218,15 +222,15 @@ function Header({ day, dayNumber, totalDays }: HeaderProps) {
       <text x={340} y={30} fontSize={12} fill="#0f172a">
         Date: {date.toISOString().slice(0, 10)}
       </text>
-      <text x={560} y={30} fontSize={12} fill="#0f172a">
+      <text x={640} y={30} fontSize={12} fill="#0f172a">
         Total miles today: {day.totals.total_miles.toFixed(1)}
       </text>
 
-      <text x={340} y={48} fontSize={11} fill="#64748b">
-        From: {from ?? '—'}
+      <text x={340} y={50} fontSize={11} fill="#64748b">
+        From: {truncate(fromLocation, 90)}
       </text>
-      <text x={560} y={48} fontSize={11} fill="#64748b">
-        To: {to ?? '—'}
+      <text x={340} y={66} fontSize={11} fill="#64748b">
+        To: {truncate(toLocation, 90)}
       </text>
     </g>
   )
@@ -361,9 +365,11 @@ interface Props {
   day: DayPlan
   dayNumber: number
   totalDays: number
+  fromLocation: string
+  toLocation: string
 }
 
-export function LogSheet({ day, dayNumber, totalDays }: Props) {
+export function LogSheet({ day, dayNumber, totalDays , fromLocation, toLocation}: Props) {
   const dayStart = new Date(`${day.date}T00:00:00Z`)
   const filledEvents = fillGaps(day.events, dayStart)
   const totals = computeTotals(filledEvents)
@@ -375,7 +381,7 @@ export function LogSheet({ day, dayNumber, totalDays }: Props) {
         className="h-auto w-full"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <Header day={day} dayNumber={dayNumber} totalDays={totalDays} />
+        <Header day={day} dayNumber={dayNumber} totalDays={totalDays} fromLocation={fromLocation} toLocation={toLocation} />
 
         <HourRuler />
 
@@ -414,13 +420,4 @@ export function LogSheet({ day, dayNumber, totalDays }: Props) {
       </svg>
     </div>
   )
-}
-
-function dayEndpoints(events: ScheduleEvent[]): { from: string | null; to: string | null } {
-  const located = events.filter((e) => e.location !== null)
-  if (located.length === 0) return { from: null, to: null }
-  return {
-    from: located[0].location!.name,
-    to: located[located.length - 1].location!.name,
-  }
 }
