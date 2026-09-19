@@ -1,6 +1,6 @@
 import L from 'leaflet'
 
-function makeMarkerIcon(color: string, label: string, ring = false) {
+function makeMarkerIcon(color: string, label: string) {
   const size = 32
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 44" width="${size}" height="${size * 44 / 32}">

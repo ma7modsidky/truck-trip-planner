@@ -5,11 +5,6 @@ import { MapPickerModal } from './MapPickerModal'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { MapPin, LocateFixed } from 'lucide-react'
 
-interface Suggestion {
-  name: string
-  latitude: number
-  longitude: number
-}
 
 interface Props {
   label: string
@@ -20,7 +15,6 @@ interface Props {
   allowGeolocation?: boolean
 }
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
 
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value)
